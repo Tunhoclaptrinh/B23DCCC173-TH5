@@ -3,23 +3,37 @@ import React, { useEffect, useState } from 'react';
 import TableBase from '@/components/Table';
 import { IColumn } from '@/components/Table/typing';
 import { useModel } from 'umi';
-import { Button, Tag, Space, Modal, Select, message } from 'antd';
-import { EditOutlined, EyeOutlined, DeleteOutlined, SwapOutlined } from '@ant-design/icons';
+import { Button, Tag, Space, Modal, Select, message, Typography, Tooltip } from 'antd';
+import {
+	EditOutlined,
+	EyeOutlined,
+	DeleteOutlined,
+	SwapOutlined,
+	UserSwitchOutlined,
+	HistoryOutlined,
+	FilterOutlined,
+} from '@ant-design/icons';
 import ApplicationForm from '../../../components/ClubMangaement/applicationForm';
+
+const { Text } = Typography;
 
 const MemberManagement = () => {
 	const applicationModel = useModel('ClubMangement.application');
 	const clubModel = useModel('ClubMangement.club');
 	const [moveModalVisible, setMoveModalVisible] = useState(false);
+	const [historyModalVisible, setHistoryModalVisible] = useState(false);
 	const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 	const [targetClubId, setTargetClubId] = useState<string>('');
 	const [members, setMembers] = useState<any[]>([]);
+	const [filteredClubId, setFilteredClubId] = useState<string | null>(null);
+	const [currentMemberLogs, setCurrentMemberLogs] = useState<ClubMangement.Activity_logs[]>([]);
+	const [currentMemberId, setCurrentMemberId] = useState<string>('');
 
 	// Load data on component mount
 	useEffect(() => {
 		loadMembers();
 		clubModel.getModel && clubModel.getModel();
-	}, []);
+	}, [filteredClubId]);
 
 	// Load members from localStorage
 	const loadMembers = () => {
@@ -33,7 +47,7 @@ const MemberManagement = () => {
 			const applicationsData = localApplications ? JSON.parse(localApplications) : [];
 
 			// Combine the data to get full member information
-			const combinedMembers = membersData.map((member: ClubMangement.Member) => {
+			let combinedMembers = membersData.map((member: ClubMangement.Member) => {
 				const application = applicationsData.find(
 					(app: ClubMangement.Application) => app._id === member.application_id,
 				);
@@ -45,6 +59,11 @@ const MemberManagement = () => {
 					club_name: club?.name || 'Unknown Club',
 				};
 			});
+
+			// Apply club filter if active
+			if (filteredClubId) {
+				combinedMembers = combinedMembers.filter((member: { club_id: string }) => member.club_id === filteredClubId);
+			}
 
 			setMembers(combinedMembers);
 		} catch (error) {
@@ -83,9 +102,7 @@ const MemberManagement = () => {
 			// Save updated members
 			localStorage.setItem('members', JSON.stringify(updatedMembers));
 
-			message.success(
-				`Successfully moved ${selectedMemberIds.length} member(s) to ${clubModel.getClubNameById(targetClubId)}`,
-			);
+			message.success(`Successfully moved ${selectedMemberIds.length} member(s) to ${getClubNameById(targetClubId)}`);
 			setMoveModalVisible(false);
 			setSelectedMemberIds([]);
 			loadMembers();
@@ -95,10 +112,16 @@ const MemberManagement = () => {
 		}
 	};
 
+	// Helper function to get club name by ID
+	const getClubNameById = (clubId: string): string => {
+		const club = clubModel.data?.find((c) => c._id === clubId);
+		return club ? club.name : 'Unknown Club';
+	};
+
 	// Log the member move activity
 	const logMemberMove = (member: ClubMangement.Member, newClubId: string) => {
-		const oldClub = clubModel.getClubNameById(member.club_id);
-		const newClub = clubModel.getClubNameById(newClubId);
+		const oldClub = getClubNameById(member.club_id);
+		const newClub = getClubNameById(newClubId);
 
 		// Get existing logs
 		const logsData = localStorage.getItem('activity_logs');
@@ -106,7 +129,7 @@ const MemberManagement = () => {
 
 		// Create new log entry
 		const newLog: ClubMangement.Activity_logs = {
-			_id: applicationModel.generateUUID(), // This function needs to be exposed or reimplemented
+			_id: applicationModel.generateUUID(),
 			application_id: member.application_id,
 			admin_id: 'current-admin-id', // In a real app, this would come from auth context
 			action: 'Move',
@@ -122,6 +145,19 @@ const MemberManagement = () => {
 
 		// Save updated logs
 		localStorage.setItem('activity_logs', JSON.stringify([newLog, ...logs]));
+	};
+
+	// Show member history
+	const showMemberHistory = (memberId: string, applicationId: string) => {
+		// Get activity logs for this member
+		const logsData = localStorage.getItem('activity_logs');
+		const logs = logsData ? JSON.parse(logsData) : [];
+
+		const memberLogs = logs.filter((log: ClubMangement.Activity_logs) => log.application_id === applicationId);
+
+		setCurrentMemberLogs(memberLogs);
+		setCurrentMemberId(memberId);
+		setHistoryModalVisible(true);
 	};
 
 	// Define table columns
@@ -176,39 +212,55 @@ const MemberManagement = () => {
 		},
 		{
 			title: 'Actions',
-			width: 150,
+			width: 200,
 			align: 'center',
 			render: (_, record) => (
 				<Space size='small'>
-					<Button
-						type='text'
-						icon={<EyeOutlined />}
-						onClick={() => {
-							applicationModel.setRecord(record);
-							applicationModel.setIsView(true);
-							applicationModel.setEdit(false);
-							applicationModel.setVisibleForm(true);
-						}}
-						title='View Details'
-					/>
-					<Button
-						type='text'
-						icon={<EditOutlined />}
-						onClick={() => {
-							applicationModel.setRecord(record);
-							applicationModel.setEdit(true);
-							applicationModel.setIsView(false);
-							applicationModel.setVisibleForm(true);
-						}}
-						title='Edit'
-					/>
-					<Button
-						type='text'
-						danger
-						icon={<DeleteOutlined />}
-						onClick={() => deleteMember(record._id)}
-						title='Delete'
-					/>
+					<Tooltip title='View Details'>
+						<Button
+							type='text'
+							icon={<EyeOutlined />}
+							onClick={() => {
+								applicationModel.setRecord(record);
+								applicationModel.setIsView(true);
+								applicationModel.setEdit(false);
+								applicationModel.setVisibleForm(true);
+							}}
+						/>
+					</Tooltip>
+					<Tooltip title='Edit Member'>
+						<Button
+							type='text'
+							icon={<EditOutlined />}
+							onClick={() => {
+								applicationModel.setRecord(record);
+								applicationModel.setEdit(true);
+								applicationModel.setIsView(false);
+								applicationModel.setVisibleForm(true);
+							}}
+						/>
+					</Tooltip>
+					<Tooltip title='Delete Member'>
+						<Button type='text' danger icon={<DeleteOutlined />} onClick={() => deleteMember(record._id)} />
+					</Tooltip>
+					<Tooltip title='Move to Another Club'>
+						<Button
+							type='text'
+							style={{ color: '#1890ff' }}
+							icon={<UserSwitchOutlined />}
+							onClick={() => {
+								setSelectedMemberIds([record._id]);
+								setMoveModalVisible(true);
+							}}
+						/>
+					</Tooltip>
+					<Tooltip title='View History'>
+						<Button
+							type='text'
+							icon={<HistoryOutlined />}
+							onClick={() => showMemberHistory(record._id, record.application_id)}
+						/>
+					</Tooltip>
 				</Space>
 			),
 		},
@@ -216,17 +268,26 @@ const MemberManagement = () => {
 
 	// Delete a member
 	const deleteMember = (memberId: string) => {
-		try {
-			const localMembers = localStorage.getItem('members');
-			const membersData = localMembers ? JSON.parse(localMembers) : [];
-			const updatedMembers = membersData.filter((member: ClubMangement.Member) => member._id !== memberId);
-			localStorage.setItem('members', JSON.stringify(updatedMembers));
-			message.success('Member removed successfully!');
-			loadMembers();
-		} catch (error) {
-			console.error('Error deleting member:', error);
-			message.error('Failed to remove member');
-		}
+		Modal.confirm({
+			title: 'Are you sure you want to remove this member?',
+			content: 'This action cannot be undone.',
+			okText: 'Yes, Remove',
+			okType: 'danger',
+			cancelText: 'Cancel',
+			onOk: () => {
+				try {
+					const localMembers = localStorage.getItem('members');
+					const membersData = localMembers ? JSON.parse(localMembers) : [];
+					const updatedMembers = membersData.filter((member: ClubMangement.Member) => member._id !== memberId);
+					localStorage.setItem('members', JSON.stringify(updatedMembers));
+					message.success('Member removed successfully!');
+					loadMembers();
+				} catch (error) {
+					console.error('Error deleting member:', error);
+					message.error('Failed to remove member');
+				}
+			},
+		});
 	};
 
 	// Delete multiple members
@@ -247,6 +308,36 @@ const MemberManagement = () => {
 		}
 	};
 
+	// Render club filter dropdown
+	const renderClubFilter = () => {
+		return (
+			<Space style={{ marginBottom: 16 }}>
+				<Select
+					style={{ width: 250 }}
+					placeholder='Filter by club'
+					value={filteredClubId || undefined}
+					onChange={(value) => setFilteredClubId(value)}
+					allowClear
+					onClear={() => setFilteredClubId(null)}
+				>
+					{clubModel.data?.map((club) => (
+						<Select.Option key={club._id} value={club._id}>
+							{club.name}
+						</Select.Option>
+					))}
+				</Select>
+				<Button
+					type={filteredClubId ? 'primary' : 'default'}
+					icon={<FilterOutlined />}
+					onClick={() => setFilteredClubId(null)}
+					disabled={!filteredClubId}
+				>
+					Clear Filter
+				</Button>
+			</Space>
+		);
+	};
+
 	// Render bulk action button for moving members
 	const renderMoveButton = () => {
 		if (selectedMemberIds.length === 0) return null;
@@ -256,19 +347,35 @@ const MemberManagement = () => {
 				type='primary'
 				icon={<SwapOutlined />}
 				onClick={() => setMoveModalVisible(true)}
-				style={{ marginBottom: 16 }}
+				style={{ marginBottom: 16, marginRight: 16 }}
 			>
 				Move {selectedMemberIds.length} member(s) to another club
 			</Button>
 		);
 	};
 
+	// Format timestamp for display
+	const formatTimestamp = (timestamp: string) => {
+		const date = new Date(timestamp);
+		return date.toLocaleString('en-US', {
+			year: 'numeric',
+			month: 'short',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: true,
+		});
+	};
+
 	return (
 		<>
-			{renderMoveButton()}
+			<div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+				<div>{renderMoveButton()}</div>
+				<div>{renderClubFilter()}</div>
+			</div>
 
 			<TableBase
-				title='Club Members'
+				title={filteredClubId ? `Members of ${getClubNameById(filteredClubId)}` : 'All Club Members'}
 				columns={columns}
 				modelName='ClubMangement.application'
 				deleteMany={true}
@@ -335,6 +442,66 @@ const MemberManagement = () => {
 						</Select.Option>
 					))}
 				</Select>
+			</Modal>
+
+			{/* Member History Modal */}
+			<Modal
+				title='Member Activity History'
+				visible={historyModalVisible}
+				onCancel={() => setHistoryModalVisible(false)}
+				footer={[
+					<Button key='close' onClick={() => setHistoryModalVisible(false)}>
+						Close
+					</Button>,
+				]}
+				width={600}
+			>
+				{currentMemberLogs.length === 0 ? (
+					<Text>No activity history found for this member.</Text>
+				) : (
+					<div className='member-history'>
+						{currentMemberLogs.map((log) => {
+							// Parse details if it exists and is for a move action
+							let details = null;
+							if (log.action === 'Move' && log.details) {
+								try {
+									const detailsObj = JSON.parse(log.details);
+									details = (
+										<div style={{ marginTop: 8 }}>
+											<Text type='secondary'>
+												Moved from {detailsObj.from_club_name} to {detailsObj.to_club_name}
+											</Text>
+										</div>
+									);
+								} catch (e) {
+									console.error('Error parsing log details', e);
+								}
+							}
+
+							return (
+								<div
+									key={log._id}
+									style={{
+										marginBottom: 16,
+										padding: 12,
+										borderLeft: `4px solid ${
+											log.action === 'Approve' ? 'green' : log.action === 'Reject' ? 'red' : 'blue'
+										}`,
+										backgroundColor: '#f5f5f5',
+									}}
+								>
+									<div>
+										<Text strong>{log.action}</Text> at {formatTimestamp(log.timestamp)}
+									</div>
+									<div style={{ marginTop: 4 }}>
+										<Text>Reason: {log.reason}</Text>
+									</div>
+									{details}
+								</div>
+							);
+						})}
+					</div>
+				)}
 			</Modal>
 		</>
 	);
