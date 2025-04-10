@@ -199,7 +199,7 @@ export default [
 			{
 				path: '/club-management/1',
 				name: 'Application',
-				// component: './ClassRoomManagement',
+				component: './ClubMangement/Application',
 			},
 
 			{

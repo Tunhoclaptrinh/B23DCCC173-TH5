@@ -2,8 +2,8 @@ import React from 'react';
 import TableBase from '@/components/Table';
 import { IColumn } from '@/components/Table/typing';
 import { useModel } from 'umi';
-import { Button, Tag, Space } from 'antd';
-import { EditOutlined, EyeOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Button, Tag, Space, Input } from 'antd';
+import { EditOutlined, EyeOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
 import ClubForm from '../../../components/ClubMangaement/form';
 
 const Club = () => {
@@ -63,12 +63,7 @@ const Club = () => {
 			title: 'Hoạt động',
 			dataIndex: 'is_active',
 			width: 120,
-			sortable: true,
-			filterType: 'select',
-			filterData: [
-				{ label: 'Có', value: true },
-				{ label: 'Không', value: false },
-			],
+
 			render: (value: boolean) => (
 				<Tag color={value ? 'green' : 'red'}>{value ? 'Đang hoạt động' : 'Ngừng hoạt động'}</Tag>
 			),
@@ -78,6 +73,7 @@ const Club = () => {
 			dataIndex: 'established_date',
 			width: 140,
 			sortable: true,
+			// filterType: 'string',
 			render: (text: string) => {
 				const date = new Date(text);
 				return date.toLocaleDateString('vi-VN');

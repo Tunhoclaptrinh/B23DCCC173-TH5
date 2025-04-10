@@ -241,35 +241,6 @@ export default (key = 'club_management_clubs') => {
 			setLoading(false);
 		}
 	};
-
-	// Generate sample data for testing
-	const generateSampleData = (count: number = 10) => {
-		const sampleClubs: ClubMangement.Club[] = [];
-		const now = new Date().toISOString();
-
-		for (let i = 0; i < count; i++) {
-			sampleClubs.push({
-				_id: uuidv4(),
-				name: `Câu lạc bộ ${i + 1}`,
-				established_date: new Date(Date.now() - Math.random() * 5 * 365 * 24 * 60 * 60 * 1000)
-					.toISOString()
-					.split('T')[0],
-				description: `<p>Đây là mô tả cho Câu lạc bộ ${i + 1}. Mô tả này hỗ trợ nội dung HTML.</p>`,
-				club_leader_name: `Trưởng CLB ${i + 1}`,
-				avatar_url: `https://randomuser.me/api/portraits/${i % 2 ? 'men' : 'women'}/${i + 1}.jpg`,
-				is_active: Math.random() > 0.3, // 70% chance of being active
-				created_at: now,
-				updated_at: now,
-			});
-		}
-
-		saveToStorage(sampleClubs);
-		console.log(`Generated ${count} sample clubs`);
-
-		// Load the newly generated data
-		getModel();
-	};
-
 	// Clear all data
 	const clearData = () => {
 		localStorage.removeItem(STORAGE_KEY);
@@ -307,7 +278,6 @@ export default (key = 'club_management_clubs') => {
 		deleteClub,
 		deleteManyModel,
 		clearData,
-		generateSampleData,
 		loading,
 		total,
 		page,
