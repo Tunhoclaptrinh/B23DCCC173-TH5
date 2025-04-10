@@ -78,17 +78,8 @@ const ClubForm: React.FC<ClubFormProps> = ({ title, record, isEdit, isView, onFi
 					<DatePicker style={{ width: '100%' }} placeholder='Chọn ngày' format='DD/MM/YYYY' />
 				</Form.Item>
 
-				<Form.Item name='avatar_url' label='Ảnh đại diện' valuePropName='fileList' getValueFromEvent={normFile}>
+				<Form.Item name='avatar_url' label='Ảnh đại diện'>
 					<Input placeholder='Nhập URL ảnh đại diện' />
-					{/* For a real implementation, you'd use Upload component:
-          <Upload 
-            listType="picture"
-            maxCount={1}
-            beforeUpload={() => false}
-          >
-            <Button icon={<UploadOutlined />}>Chọn ảnh</Button>
-          </Upload>
-          */}
 				</Form.Item>
 
 				<Form.Item name='description' label='Mô tả'>

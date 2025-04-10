@@ -13,14 +13,20 @@ const Club = () => {
 	const handleFormSubmit = (values: any) => {
 		if (model.isEdit) {
 			// Update existing club
-			model.updateClub(model.record._id, values).then(() => {
+			const result = model.updateClub(model.record._id, values);
+			if (result.success) {
 				model.setVisibleForm(false);
-			});
+			} else {
+				console.error('Failed to update club:', result.error);
+			}
 		} else {
 			// Add new club
-			model.addClub(values).then(() => {
+			const result = model.addClub(values);
+			if (result.success) {
 				model.setVisibleForm(false);
-			});
+			} else {
+				console.error('Failed to add club:', result.error);
+			}
 		}
 	};
 
@@ -124,7 +130,10 @@ const Club = () => {
 				modelName='ClubMangement.club'
 				rowSelection={true}
 				deleteMany={true}
-				Form={ClubForm}
+				Form={(props) => (
+					<ClubForm {...props} title={model.isEdit ? 'Chỉnh sửa CLB' : model.isView ? 'Xem CLB' : 'Thêm mới CLB'} />
+				)}
+				dataState='data' //thêm dòng này để Table lấy từ model.data
 				formProps={{
 					onFinish: handleFormSubmit,
 					onCancel: () => model.setVisibleForm(false),

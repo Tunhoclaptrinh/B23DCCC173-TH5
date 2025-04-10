@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { get } from 'lodash';
 
 const STORAGE_KEY = 'club_management_clubs';
-const MEMBERS_KEY = 'club_management_members';
 
 export default (key = 'club_management_clubs') => {
 	// State for table data
@@ -23,16 +22,14 @@ export default (key = 'club_management_clubs') => {
 	const initFilter: any[] = [];
 
 	// Load data from localStorage
-	const loadFromStorage = (): ClubMangement.Club[] => {
-		try {
-			const storedData = localStorage.getItem(STORAGE_KEY);
-			return storedData ? JSON.parse(storedData) : [];
-		} catch (error) {
-			console.error('Error loading clubs from localStorage:', error);
-			return [];
-		}
+	const getLocalClubs = (): ClubMangement.Club[] => {
+		const data = localStorage.getItem(STORAGE_KEY);
+		return data ? JSON.parse(data) : [];
 	};
 
+	const saveLocalClubs = (clubs: ClubMangement.Club[]) => {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(clubs));
+	};
 	// Save data to localStorage
 	const saveToStorage = (data: ClubMangement.Club[]): void => {
 		try {
@@ -41,32 +38,6 @@ export default (key = 'club_management_clubs') => {
 			console.error('Error saving clubs to localStorage:', error);
 		}
 	};
-
-	// Get members from localStorage
-	const loadMembersFromStorage = (): ClubMangement.Member[] => {
-		try {
-			const storedData = localStorage.getItem(MEMBERS_KEY);
-			return storedData ? JSON.parse(storedData) : [];
-		} catch (error) {
-			console.error('Error loading members from localStorage:', error);
-			return [];
-		}
-	};
-
-	// Initialize data if needed
-	useEffect(() => {
-		console.log('Initializing club data');
-		const clubs = loadFromStorage();
-		if (clubs.length === 0) {
-			// Generate sample data if no data exists
-			console.log('No clubs found in storage, generating sample data');
-			generateSampleData();
-		} else {
-			// Load existing data into state
-			console.log(`Found ${clubs.length} clubs in storage, loading data`);
-			getModel();
-		}
-	}, []);
 
 	// Apply filtering
 	const applyFilters = (data: ClubMangement.Club[], filters: any[]): ClubMangement.Club[] => {
@@ -120,7 +91,7 @@ export default (key = 'club_management_clubs') => {
 		setLoading(true);
 
 		try {
-			let data = loadFromStorage();
+			let data = getLocalClubs();
 			console.log(`Loaded ${data.length} clubs from storage`);
 
 			// Apply additional condition if needed
@@ -160,7 +131,7 @@ export default (key = 'club_management_clubs') => {
 		setLoading(true);
 
 		try {
-			const clubs = loadFromStorage();
+			const clubs = getLocalClubs();
 			const now = new Date().toISOString();
 
 			const newClub: ClubMangement.Club = {
@@ -191,7 +162,7 @@ export default (key = 'club_management_clubs') => {
 		setLoading(true);
 
 		try {
-			const clubs = loadFromStorage();
+			const clubs = getLocalClubs();
 			const clubIndex = clubs.findIndex((club) => club._id === id);
 
 			if (clubIndex === -1) {
@@ -202,6 +173,7 @@ export default (key = 'club_management_clubs') => {
 			const updatedClub = {
 				...clubs[clubIndex],
 				...clubData,
+
 				updated_at: new Date().toISOString(),
 			};
 
@@ -226,7 +198,7 @@ export default (key = 'club_management_clubs') => {
 		setLoading(true);
 
 		try {
-			const clubs = loadFromStorage();
+			const clubs = getLocalClubs();
 			const newClubs = clubs.filter((club) => club._id !== id);
 
 			saveToStorage(newClubs);
@@ -249,7 +221,7 @@ export default (key = 'club_management_clubs') => {
 		setLoading(true);
 
 		try {
-			const clubs = loadFromStorage();
+			const clubs = getLocalClubs();
 			const newClubs = clubs.filter((club) => !ids.includes(club._id));
 
 			saveToStorage(newClubs);
@@ -268,12 +240,6 @@ export default (key = 'club_management_clubs') => {
 		} finally {
 			setLoading(false);
 		}
-	};
-
-	// Get club members
-	const getClubMembers = (clubId: string) => {
-		const members = loadMembersFromStorage();
-		return members.filter((member) => member.club_id === clubId);
 	};
 
 	// Generate sample data for testing
@@ -341,7 +307,6 @@ export default (key = 'club_management_clubs') => {
 		deleteClub,
 		deleteManyModel,
 		clearData,
-		getClubMembers,
 		generateSampleData,
 		loading,
 		total,
