@@ -2,17 +2,20 @@ import React from 'react';
 import TableBase from '@/components/Table';
 import { IColumn } from '@/components/Table/typing';
 import { useModel } from 'umi';
-import { Button, Tag, Space, Input } from 'antd';
-import { EditOutlined, EyeOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Tag, Space, Modal, Table } from 'antd'; // Thêm Table
+import { EditOutlined, EyeOutlined, DeleteOutlined } from '@ant-design/icons';
 import ClubForm from '../../../components/ClubMangaement/form';
 
 const Club = () => {
 	const model = useModel('ClubMangement.club');
+	const [visibleMembersModal, setVisibleMembersModal] = React.useState(false);
+	const [selectedClubMembers, setSelectedClubMembers] = React.useState<
+		(ClubMangement.Member & Partial<ClubMangement.Application>)[]
+	>([]); // Kết hợp thông tin Member và Application
 
 	// Function to handle form submission
 	const handleFormSubmit = (values: any) => {
 		if (model.isEdit) {
-			// Update existing club
 			const result = model.updateClub(model.record._id, values);
 			if (result.success) {
 				model.setVisibleForm(false);
@@ -20,7 +23,6 @@ const Club = () => {
 				console.error('Failed to update club:', result.error);
 			}
 		} else {
-			// Add new club
 			const result = model.addClub(values);
 			if (result.success) {
 				model.setVisibleForm(false);
@@ -35,7 +37,25 @@ const Club = () => {
 		model.deleteClub(id);
 	};
 
-	// Define table columns
+	// Function to fetch members of a club with application details
+	const fetchClubMembers = (clubId: string) => {
+		const members: ClubMangement.Member[] = JSON.parse(localStorage.getItem('members') || '[]');
+		const applications: ClubMangement.Application[] = JSON.parse(localStorage.getItem('applications') || '[]');
+
+		// Lọc thành viên theo clubId
+		const clubMembers = members.filter((member) => member.club_id === clubId);
+
+		// Kết hợp thông tin từ Application
+		const enrichedMembers = clubMembers.map((member) => {
+			const application = applications.find((app) => app._id === member.application_id);
+			return { ...member, ...application }; // Gộp thông tin Member và Application
+		});
+
+		setSelectedClubMembers(enrichedMembers);
+		setVisibleMembersModal(true);
+	};
+
+	// Define table columns for clubs
 	const columns: IColumn<ClubMangement.Club>[] = [
 		{
 			title: 'Ảnh đại diện',
@@ -63,7 +83,6 @@ const Club = () => {
 			title: 'Hoạt động',
 			dataIndex: 'is_active',
 			width: 120,
-
 			render: (value: boolean) => (
 				<Tag color={value ? 'green' : 'red'}>{value ? 'Đang hoạt động' : 'Ngừng hoạt động'}</Tag>
 			),
@@ -73,7 +92,6 @@ const Club = () => {
 			dataIndex: 'established_date',
 			width: 140,
 			sortable: true,
-			// filterType: 'string',
 			render: (text: string) => {
 				const date = new Date(text);
 				return date.toLocaleDateString('vi-VN');
@@ -95,12 +113,7 @@ const Club = () => {
 					<Button
 						type='text'
 						icon={<EyeOutlined />}
-						onClick={() => {
-							model.setRecord(record);
-							model.setIsView(true);
-							model.setEdit(false);
-							model.setVisibleForm(true);
-						}}
+						onClick={() => fetchClubMembers(record._id)} // Gọi hàm lấy danh sách thành viên
 					/>
 					<Button
 						type='text'
@@ -118,6 +131,36 @@ const Club = () => {
 		},
 	];
 
+	// Define columns for members table in modal
+	const memberColumns = [
+		{
+			title: 'Họ và tên',
+			dataIndex: 'full_name',
+			key: 'full_name',
+		},
+		{
+			title: 'Email',
+			dataIndex: 'email',
+			key: 'email',
+		},
+		{
+			title: 'Số điện thoại',
+			dataIndex: 'phone_number',
+			key: 'phone_number',
+		},
+		{
+			title: 'Giới tính',
+			dataIndex: 'gender',
+			key: 'gender',
+		},
+		{
+			title: 'Ngày tham gia',
+			dataIndex: 'join_date',
+			key: 'join_date',
+			render: (text: string) => new Date(text).toLocaleDateString('vi-VN'),
+		},
+	];
+
 	return (
 		<>
 			<TableBase
@@ -129,7 +172,7 @@ const Club = () => {
 				Form={(props) => (
 					<ClubForm {...props} title={model.isEdit ? 'Chỉnh sửa CLB' : model.isView ? 'Xem CLB' : 'Thêm mới CLB'} />
 				)}
-				dataState='data' //thêm dòng này để Table lấy từ model.data
+				dataState='data'
 				formProps={{
 					onFinish: handleFormSubmit,
 					onCancel: () => model.setVisibleForm(false),
@@ -140,6 +183,21 @@ const Club = () => {
 				formType='Modal'
 				widthDrawer={700}
 			/>
+
+			{/* Modal hiển thị danh sách thành viên */}
+			<Modal
+				title='Danh sách thành viên'
+				visible={visibleMembersModal}
+				onCancel={() => setVisibleMembersModal(false)}
+				footer={null}
+				width={800}
+			>
+				{selectedClubMembers.length > 0 ? (
+					<Table columns={memberColumns} dataSource={selectedClubMembers} rowKey='_id' pagination={false} />
+				) : (
+					<p>Chưa có thành viên nào trong CLB này.</p>
+				)}
+			</Modal>
 		</>
 	);
 };
