@@ -262,5 +262,6 @@ export default () => {
 		bulkRejectApplications,
 		getApplicationLogs,
 		getClubNameById,
+		generateUUID, // Add this to expose the function
 	};
 };

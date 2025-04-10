@@ -192,19 +192,20 @@ export default [
 				// component: './ClassRoomManagement/dashboard',
 			},
 			{
-				path: '/club-management/classroom',
+				path: '/club-management/club',
 				name: 'Clubs',
 				component: './ClubMangement/Club',
 			},
 			{
-				path: '/club-management/1',
+				path: '/club-management/application',
 				name: 'Application',
 				component: './ClubMangement/Application',
 			},
 
 			{
-				path: '/club-management/2',
+				path: '/club-management/member',
 				name: 'Members',
+				component: './ClubMangement/Member',
 			},
 		],
 	},
