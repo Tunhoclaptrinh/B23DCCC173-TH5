@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Row, Col, Select, Button } from 'antd';
 import * as XLSX from 'xlsx';
 import { useModel } from 'umi';
@@ -8,28 +8,41 @@ import { ApexOptions } from 'apexcharts';
 const { Option } = Select;
 
 const Dashboard = () => {
-	const { applications } = useModel('ClubMangement.application');
-	const { data: clubs } = useModel('ClubMangement.club');
+	const { allClubs: clubs = [], getModel } = useModel('ClubMangement.club');
+	const { applications = [], getApplicationsData } = useModel('ClubMangement.application');
 	const [selectedClub, setSelectedClub] = useState<string>('');
+	const [loading, setLoading] = useState(true);
 
-	const stats = {
-		totalClubs: clubs.length,
-		pendingApplications: applications.filter((app) => app.status === 'Pending').length,
-		approvedApplications: applications.filter((app) => app.status === 'Approved').length,
-		rejectedApplications: applications.filter((app) => app.status === 'Rejected').length,
-	};
+	useEffect(() => {
+		const fetchData = async () => {
+			await Promise.all([getApplicationsData(), getModel()]);
+			setLoading(false);
+		};
+		fetchData();
+	}, []);
+
+	const stats = useMemo(
+		() => ({
+			totalClubs: Array.isArray(clubs) ? clubs.length : 0,
+			totalApplications: applications.length,
+			pendingApplications: applications.filter((app) => app.status === 'pending').length,
+			approvedApplications: applications.filter((app) => app.status === 'approved').length,
+			rejectedApplications: applications.filter((app) => app.status === 'rejected').length,
+		}),
+		[applications, clubs],
+	);
 
 	const chartData = {
 		xAxis: clubs.map((club) => club.name),
 		yAxis: [
 			clubs.map(
-				(club) => applications.filter((app) => app.desired_club_id === club._id && app.status === 'Pending').length,
+				(club) => applications.filter((app) => app.desired_club_id === club._id && app.status === 'pending').length,
 			),
 			clubs.map(
-				(club) => applications.filter((app) => app.desired_club_id === club._id && app.status === 'Approved').length,
+				(club) => applications.filter((app) => app.desired_club_id === club._id && app.status === 'approved').length,
 			),
 			clubs.map(
-				(club) => applications.filter((app) => app.desired_club_id === club._id && app.status === 'Rejected').length,
+				(club) => applications.filter((app) => app.desired_club_id === club._id && app.status === 'rejected').length,
 			),
 		],
 		yLabel: ['Chờ duyệt', 'Đã duyệt', 'Từ chối'],
@@ -38,10 +51,10 @@ const Dashboard = () => {
 		showTotal: true,
 		otherOptions: {
 			chart: {
-				stacked: true,
 				toolbar: {
 					show: true,
 				},
+				// stacked: true,
 			},
 			plotOptions: {
 				bar: {
@@ -58,6 +71,7 @@ const Dashboard = () => {
 						fontWeight: 'bold',
 					},
 				},
+				categories: clubs.map((club) => club.name),
 				labels: {
 					rotate: -45,
 					style: {
@@ -81,9 +95,15 @@ const Dashboard = () => {
 		} as ApexOptions,
 	};
 
+	// Hàm làm sạch tên file
+	const sanitizeFileName = (name: string) => {
+		return name.replace(/[^a-zA-Z0-9_]/g, '_'); // Thay thế ký tự không hợp lệ bằng '_'
+	};
+
+	// Xuất file Excel
 	const exportToExcel = () => {
 		let dataToExport = applications
-			.filter((app) => app.status === 'Approved')
+			.filter((app) => app.status === 'approved')
 			.map((app) => {
 				const club = clubs.find((c) => c._id === app.desired_club_id);
 				return {
@@ -91,13 +111,23 @@ const Dashboard = () => {
 					Email: app.email,
 					SĐT: app.phone_number,
 					'Giới tính': app.gender,
-					CLB: club?.name || app.desired_club_id,
-					'Ngày tham gia': new Date(app.updated_at).toLocaleDateString(),
+					CLB: club?.name ?? app.desired_club_id,
+					'Ngày tham gia': new Date(app.updated_at).toLocaleDateString('vi-VN'),
 				};
 			});
 
 		if (selectedClub) {
-			dataToExport = dataToExport.filter((item) => item.CLB === clubs.find((c) => c._id === selectedClub)?.name);
+			const selectedClubName = clubs.find((c) => c._id === selectedClub)?.name;
+			if (!selectedClubName) {
+				alert('CLB đã chọn không tồn tại trong danh sách!');
+				return;
+			}
+			dataToExport = dataToExport.filter((item) => item.CLB === selectedClubName);
+		}
+
+		if (dataToExport.length === 0) {
+			alert('Không có dữ liệu để xuất!');
+			return;
 		}
 
 		const wb = XLSX.utils.book_new();
@@ -105,12 +135,13 @@ const Dashboard = () => {
 
 		XLSX.utils.book_append_sheet(wb, ws, 'Danh sách thành viên');
 
-		const fileName = selectedClub
-			? `Danh_sach_thanh_vien_${clubs.find((c) => c._id === selectedClub)?.name}.xlsx`
-			: 'Danh_sach_thanh_vien_tat_ca_CLB.xlsx';
+		const clubName = selectedClub ? clubs.find((c) => c._id === selectedClub)?.name : 'tat_ca_CLB';
+		const fileName = `Danh_sach_thanh_vien_${sanitizeFileName(clubName || 'unknown')}.xlsx`;
 
 		XLSX.writeFile(wb, fileName);
 	};
+
+	if (loading) return <div>Đang tải dữ liệu...</div>;
 
 	return (
 		<div style={{ padding: 24 }}>
@@ -162,7 +193,7 @@ const Dashboard = () => {
 					<Button
 						type='primary'
 						onClick={exportToExcel}
-						disabled={applications.filter((app) => app.status === 'Approved').length === 0}
+						disabled={applications.filter((app) => app.status === 'approved').length === 0}
 					>
 						Xuất file Excel
 					</Button>

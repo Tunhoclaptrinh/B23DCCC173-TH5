@@ -13,6 +13,7 @@ export default (key = 'club_management_clubs') => {
 	const [limit, setLimit] = useState<number>(10);
 	const [visibleForm, setVisibleForm] = useState<boolean>(false);
 	const [record, setRecord] = useState<any>({});
+	const [allClubs, setAllClubs] = useState<ClubMangement.Club[]>([]);
 	const [isEdit, setEdit] = useState<boolean>(false);
 	const [isView, setIsView] = useState<boolean>(false);
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -87,7 +88,6 @@ export default (key = 'club_management_clubs') => {
 
 	// Main function to get club data
 	const getModel = (params?: any) => {
-		console.log('Getting model data with params:', params);
 		setLoading(true);
 
 		try {
@@ -112,6 +112,8 @@ export default (key = 'club_management_clubs') => {
 
 			// Set total count
 			setTotal(sortedData.length);
+
+			setAllClubs(sortedData); // chứa toàn bộ danh sách CLB sau khi lọc/sắp xếp
 
 			// Apply pagination
 			const paginatedData = applyPagination(sortedData);
@@ -271,6 +273,7 @@ export default (key = 'club_management_clubs') => {
 
 	return {
 		data: danhSach,
+		allClubs, // dùng cái này cho biểu đồ
 		setData: setDanhSach,
 		getModel,
 		addClub,
@@ -302,4 +305,5 @@ export default (key = 'club_management_clubs') => {
 		setCondition,
 		initFilter,
 	};
+	// Function removed as `setAllClubs` is now a state setter from useState.
 };

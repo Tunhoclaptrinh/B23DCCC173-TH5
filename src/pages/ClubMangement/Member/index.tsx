@@ -1,9 +1,8 @@
-// src/pages/ClubManagement/MemberManagement/index.tsx
 import React, { useEffect, useState } from 'react';
 import TableBase from '@/components/Table';
 import { IColumn } from '@/components/Table/typing';
 import { useModel } from 'umi';
-import { Button, Tag, Space, Modal, Select, message, Typography, Tooltip } from 'antd';
+import { Button, Space, Modal, Select, message, Typography, Tooltip } from 'antd';
 import {
 	EditOutlined,
 	EyeOutlined,
@@ -29,24 +28,18 @@ const MemberManagement = () => {
 	const [currentMemberLogs, setCurrentMemberLogs] = useState<ClubMangement.Activity_logs[]>([]);
 	const [currentMemberId, setCurrentMemberId] = useState<string>('');
 
-	// Load data on component mount
 	useEffect(() => {
 		loadMembers();
 		clubModel.getModel && clubModel.getModel();
 	}, [filteredClubId]);
 
-	// Load members from localStorage
 	const loadMembers = () => {
 		try {
-			// Get all members
 			const localMembers = localStorage.getItem('members');
 			const membersData = localMembers ? JSON.parse(localMembers) : [];
-
-			// Get all applications
 			const localApplications = localStorage.getItem('applications');
 			const applicationsData = localApplications ? JSON.parse(localApplications) : [];
 
-			// Combine the data to get full member information
 			let combinedMembers = membersData.map((member: ClubMangement.Member) => {
 				const application = applicationsData.find(
 					(app: ClubMangement.Application) => app._id === member.application_id,
@@ -60,7 +53,6 @@ const MemberManagement = () => {
 				};
 			});
 
-			// Apply club filter if active
 			if (filteredClubId) {
 				combinedMembers = combinedMembers.filter((member: { club_id: string }) => member.club_id === filteredClubId);
 			}
@@ -72,24 +64,30 @@ const MemberManagement = () => {
 		}
 	};
 
-	// Handle moving members to a different club
+	// Sửa hàm handleMoveMembers
 	const handleMoveMembers = () => {
 		if (!targetClubId) {
 			message.error('Please select a destination club');
 			return;
 		}
 
+		if (selectedMemberIds.length === 0) {
+			message.error('No members selected to move');
+			return;
+		}
+
 		try {
-			// Get current members
 			const localMembers = localStorage.getItem('members');
 			const membersData = localMembers ? JSON.parse(localMembers) : [];
 
-			// Update club_id for selected members
+			// Debug: Kiểm tra dữ liệu trước khi cập nhật
+			console.log('Selected Member IDs:', selectedMemberIds);
+			console.log('Target Club ID:', targetClubId);
+			console.log('Members before update:', membersData);
+
 			const updatedMembers = membersData.map((member: ClubMangement.Member) => {
 				if (selectedMemberIds.includes(member._id)) {
-					// Log this activity
 					logMemberMove(member, targetClubId);
-
 					return {
 						...member,
 						club_id: targetClubId,
@@ -99,39 +97,39 @@ const MemberManagement = () => {
 				return member;
 			});
 
-			// Save updated members
+			// Debug: Kiểm tra dữ liệu sau khi cập nhật
+			console.log('Members after update:', updatedMembers);
+
+			// Lưu vào localStorage
 			localStorage.setItem('members', JSON.stringify(updatedMembers));
 
+			// Cập nhật giao diện
 			message.success(`Successfully moved ${selectedMemberIds.length} member(s) to ${getClubNameById(targetClubId)}`);
 			setMoveModalVisible(false);
+			setTargetClubId('');
 			setSelectedMemberIds([]);
-			loadMembers();
+			loadMembers(); // Tải lại danh sách thành viên để đồng bộ giao diện
 		} catch (error) {
 			console.error('Error moving members:', error);
 			message.error('Failed to move members');
 		}
 	};
 
-	// Helper function to get club name by ID
 	const getClubNameById = (clubId: string): string => {
 		const club = clubModel.data?.find((c) => c._id === clubId);
 		return club ? club.name : 'Unknown Club';
 	};
 
-	// Log the member move activity
 	const logMemberMove = (member: ClubMangement.Member, newClubId: string) => {
 		const oldClub = getClubNameById(member.club_id);
 		const newClub = getClubNameById(newClubId);
-
-		// Get existing logs
 		const logsData = localStorage.getItem('activity_logs');
 		const logs = logsData ? JSON.parse(logsData) : [];
 
-		// Create new log entry
 		const newLog: ClubMangement.Activity_logs = {
 			_id: applicationModel.generateUUID(),
 			application_id: member.application_id,
-			admin_id: 'current-admin-id', // In a real app, this would come from auth context
+			admin_id: 'current-admin-id',
 			action: 'Move',
 			reason: `Moved from ${oldClub} to ${newClub}`,
 			timestamp: new Date().toISOString(),
@@ -143,16 +141,12 @@ const MemberManagement = () => {
 			}),
 		};
 
-		// Save updated logs
 		localStorage.setItem('activity_logs', JSON.stringify([newLog, ...logs]));
 	};
 
-	// Show member history
 	const showMemberHistory = (memberId: string, applicationId: string) => {
-		// Get activity logs for this member
 		const logsData = localStorage.getItem('activity_logs');
 		const logs = logsData ? JSON.parse(logsData) : [];
-
 		const memberLogs = logs.filter((log: ClubMangement.Activity_logs) => log.application_id === applicationId);
 
 		setCurrentMemberLogs(memberLogs);
@@ -160,7 +154,46 @@ const MemberManagement = () => {
 		setHistoryModalVisible(true);
 	};
 
-	// Define table columns
+	const deleteMember = (memberId: string) => {
+		Modal.confirm({
+			title: 'Are you sure you want to remove this member?',
+			content: 'This action cannot be undone.',
+			okText: 'Yes, Remove',
+			okType: 'danger',
+			cancelText: 'Cancel',
+			onOk: () => {
+				try {
+					const localMembers = localStorage.getItem('members');
+					const membersData = localMembers ? JSON.parse(localMembers) : [];
+					const updatedMembers = membersData.filter((member: ClubMangement.Member) => member._id !== memberId);
+					localStorage.setItem('members', JSON.stringify(updatedMembers));
+					message.success('Member removed successfully!');
+					loadMembers();
+				} catch (error) {
+					console.error('Error deleting member:', error);
+					message.error('Failed to remove member');
+				}
+			},
+		});
+	};
+
+	const deleteManyMembers = async (ids: string[], callback?: () => void) => {
+		try {
+			const localMembers = localStorage.getItem('members');
+			const membersData = localMembers ? JSON.parse(localMembers) : [];
+			const updatedMembers = membersData.filter((member: ClubMangement.Member) => !ids.includes(member._id));
+			localStorage.setItem('members', JSON.stringify(updatedMembers));
+			message.success(`${ids.length} members removed successfully!`);
+			loadMembers();
+			if (callback) callback();
+			return { success: true };
+		} catch (error) {
+			console.error('Error deleting members:', error);
+			message.error('Failed to remove members');
+			return { success: false };
+		}
+	};
+
 	const columns: IColumn<any>[] = [
 		{
 			title: 'Full Name',
@@ -205,10 +238,7 @@ const MemberManagement = () => {
 			dataIndex: 'join_date',
 			width: 120,
 			sortable: true,
-			render: (text: string) => {
-				const date = new Date(text);
-				return date.toLocaleDateString('vi-VN');
-			},
+			render: (text: string) => new Date(text).toLocaleDateString('vi-VN'),
 		},
 		{
 			title: 'Actions',
@@ -266,83 +296,35 @@ const MemberManagement = () => {
 		},
 	];
 
-	// Delete a member
-	const deleteMember = (memberId: string) => {
-		Modal.confirm({
-			title: 'Are you sure you want to remove this member?',
-			content: 'This action cannot be undone.',
-			okText: 'Yes, Remove',
-			okType: 'danger',
-			cancelText: 'Cancel',
-			onOk: () => {
-				try {
-					const localMembers = localStorage.getItem('members');
-					const membersData = localMembers ? JSON.parse(localMembers) : [];
-					const updatedMembers = membersData.filter((member: ClubMangement.Member) => member._id !== memberId);
-					localStorage.setItem('members', JSON.stringify(updatedMembers));
-					message.success('Member removed successfully!');
-					loadMembers();
-				} catch (error) {
-					console.error('Error deleting member:', error);
-					message.error('Failed to remove member');
-				}
-			},
-		});
-	};
+	const renderClubFilter = () => (
+		<Space style={{ marginBottom: 16 }}>
+			<Select
+				style={{ width: 250 }}
+				placeholder='Filter by club'
+				value={filteredClubId || undefined}
+				onChange={(value) => setFilteredClubId(value)}
+				allowClear
+				onClear={() => setFilteredClubId(null)}
+			>
+				{clubModel.data?.map((club) => (
+					<Select.Option key={club._id} value={club._id}>
+						{club.name}
+					</Select.Option>
+				))}
+			</Select>
+			<Button
+				type={filteredClubId ? 'primary' : 'default'}
+				icon={<FilterOutlined />}
+				onClick={() => setFilteredClubId(null)}
+				disabled={!filteredClubId}
+			>
+				Clear Filter
+			</Button>
+		</Space>
+	);
 
-	// Delete multiple members
-	const deleteManyMembers = async (ids: string[], callback?: () => void) => {
-		try {
-			const localMembers = localStorage.getItem('members');
-			const membersData = localMembers ? JSON.parse(localMembers) : [];
-			const updatedMembers = membersData.filter((member: ClubMangement.Member) => !ids.includes(member._id));
-			localStorage.setItem('members', JSON.stringify(updatedMembers));
-			message.success(`${ids.length} members removed successfully!`);
-			loadMembers();
-			if (callback) callback();
-			return { success: true };
-		} catch (error) {
-			console.error('Error deleting members:', error);
-			message.error('Failed to remove members');
-			return { success: false };
-		}
-	};
-
-	// Render club filter dropdown
-	const renderClubFilter = () => {
-		return (
-			<Space style={{ marginBottom: 16 }}>
-				<Select
-					style={{ width: 250 }}
-					placeholder='Filter by club'
-					value={filteredClubId || undefined}
-					onChange={(value) => setFilteredClubId(value)}
-					allowClear
-					onClear={() => setFilteredClubId(null)}
-				>
-					{clubModel.data?.map((club) => (
-						<Select.Option key={club._id} value={club._id}>
-							{club.name}
-						</Select.Option>
-					))}
-				</Select>
-				<Button
-					type={filteredClubId ? 'primary' : 'default'}
-					icon={<FilterOutlined />}
-					onClick={() => setFilteredClubId(null)}
-					disabled={!filteredClubId}
-				>
-					Clear Filter
-				</Button>
-			</Space>
-		);
-	};
-
-	// Render bulk action button for moving members
-	const renderMoveButton = () => {
-		if (selectedMemberIds.length === 0) return null;
-
-		return (
+	const renderMoveButton = () =>
+		selectedMemberIds.length > 0 ? (
 			<Button
 				type='primary'
 				icon={<SwapOutlined />}
@@ -351,13 +333,10 @@ const MemberManagement = () => {
 			>
 				Move {selectedMemberIds.length} member(s) to another club
 			</Button>
-		);
-	};
+		) : null;
 
-	// Format timestamp for display
-	const formatTimestamp = (timestamp: string) => {
-		const date = new Date(timestamp);
-		return date.toLocaleString('en-US', {
+	const formatTimestamp = (timestamp: string) =>
+		new Date(timestamp).toLocaleString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: '2-digit',
@@ -365,7 +344,6 @@ const MemberManagement = () => {
 			minute: '2-digit',
 			hour12: true,
 		});
-	};
 
 	return (
 		<>
@@ -397,7 +375,6 @@ const MemberManagement = () => {
 				)}
 				formProps={{
 					onFinish: (values) => {
-						// Update member if needed
 						applicationModel.setVisibleForm(false);
 						loadMembers();
 					},
@@ -408,33 +385,37 @@ const MemberManagement = () => {
 				}}
 				formType='Modal'
 				widthDrawer={700}
-				// Override the model with our local state
-				// This is a workaround since we're using the application model
 				otherProps={{
 					dataSource: members,
-				}}
-				deleteManyModel={deleteManyMembers}
-				// When rows are selected, store their IDs
-				detailRow={{
-					onChange: (selectedRowKeys) => {
-						setSelectedMemberIds(selectedRowKeys as string[]);
+					rowSelection: {
+						selectedRowKeys: selectedMemberIds,
+						onChange: (selectedRowKeys) => {
+							console.log('Selected Row Keys:', selectedRowKeys); // Debug
+							setSelectedMemberIds(selectedRowKeys as string[]);
+						},
 					},
 				}}
+				deleteManyModel={deleteManyMembers}
 			/>
 
-			{/* Move Members Modal */}
 			<Modal
 				title={`Move ${selectedMemberIds.length} Member(s) to Another Club`}
 				visible={moveModalVisible}
 				onOk={handleMoveMembers}
-				onCancel={() => setMoveModalVisible(false)}
+				onCancel={() => {
+					setMoveModalVisible(false);
+					setTargetClubId('');
+				}}
 			>
 				<p>Please select the destination club:</p>
 				<Select
 					style={{ width: '100%' }}
 					placeholder='Select destination club'
-					onChange={(value) => setTargetClubId(value)}
 					value={targetClubId}
+					onChange={(value) => {
+						console.log('Target Club Selected:', value); // Debug
+						setTargetClubId(value);
+					}}
 				>
 					{clubModel.data?.map((club) => (
 						<Select.Option key={club._id} value={club._id}>
@@ -444,7 +425,6 @@ const MemberManagement = () => {
 				</Select>
 			</Modal>
 
-			{/* Member History Modal */}
 			<Modal
 				title='Member Activity History'
 				visible={historyModalVisible}
@@ -461,7 +441,6 @@ const MemberManagement = () => {
 				) : (
 					<div className='member-history'>
 						{currentMemberLogs.map((log) => {
-							// Parse details if it exists and is for a move action
 							let details = null;
 							if (log.action === 'Move' && log.details) {
 								try {
