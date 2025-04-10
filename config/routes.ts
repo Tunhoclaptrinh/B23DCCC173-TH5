@@ -189,7 +189,7 @@ export default [
 			{
 				path: '/club-management/dashboard',
 				name: 'Dash Board',
-				// component: './ClassRoomManagement/dashboard',
+				component: './ClubMangement/Dashboard',
 			},
 			{
 				path: '/club-management/club',
